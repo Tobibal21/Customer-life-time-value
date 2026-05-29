@@ -355,7 +355,7 @@ elif analysis_type == "RFM Analysis":
     # RFM matrix
     st.subheader("RFM Score Matrix")
     rfm_matrix = pd.crosstab(df['recency_score'], df['frequency_score'], 
-                             values=df['monetary_score'], aggfunc='mean').fillna(0)
+                             values=df['monetary_score'].astype(float), aggfunc='mean').fillna(0)
     
     fig = px.imshow(rfm_matrix, text_auto=True, aspect="auto",
                    title="Average Monetary Value by Recency and Frequency Scores",
