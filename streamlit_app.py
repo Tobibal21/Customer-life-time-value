@@ -112,6 +112,26 @@ else:
     df = generate_sample_data()
     st.sidebar.info("ℹ️ Using sample data. Upload your own CSV file for custom analysis.")
 
+# Calculate RFM scores and customer segments globally so they are available in all tabs
+df['recency_score'] = pd.qcut(df['recency_days'].rank(method='first'), q=4, labels=['4', '3', '2', '1'])
+df['frequency_score'] = pd.qcut(df['n_transactions'].rank(method='first'), q=4, labels=['1', '2', '3', '4'])
+df['monetary_score'] = pd.qcut(df['total_spent'].rank(method='first'), q=4, labels=['1', '2', '3', '4'])
+df['rfm_score'] = df['recency_score'].astype(str) + df['frequency_score'].astype(str) + df['monetary_score'].astype(str)
+
+def segment_customer(row):
+    if row['recency_days'] < 30 and row['n_transactions'] > 3:
+        return 'Champions'
+    elif row['recency_days'] < 60 and row['n_transactions'] > 2:
+        return 'Loyal Customers'
+    elif row['recency_days'] < 90:
+        return 'Recent Customers'
+    elif row['n_transactions'] > 1:
+        return 'At Risk'
+    else:
+        return 'Lost'
+
+df['segment'] = df.apply(segment_customer, axis=1)
+
 # Display data info in sidebar
 st.sidebar.markdown("---")
 st.sidebar.subheader("📈 Dataset Info")
@@ -235,28 +255,6 @@ elif analysis_type == "CLV Analysis":
 # Customer Segmentation
 elif analysis_type == "Customer Segmentation":
     st.header("👥 Customer Segmentation Analysis")
-    
-    # Create segments
-    df['recency_score'] = pd.qcut(df['recency_days'], q=4, labels=['4', '3', '2', '1'])
-    df['frequency_score'] = pd.qcut(df['n_transactions'], q=4, labels=['1', '2', '3', '4'])
-    df['monetary_score'] = pd.qcut(df['total_spent'], q=4, labels=['1', '2', '3', '4'])
-    
-    df['rfm_score'] = df['recency_score'].astype(str) + df['frequency_score'].astype(str) + df['monetary_score'].astype(str)
-    
-    # Segment definition
-    def segment_customer(row):
-        if row['recency_days'] < 30 and row['n_transactions'] > 3:
-            return 'Champions'
-        elif row['recency_days'] < 60 and row['n_transactions'] > 2:
-            return 'Loyal Customers'
-        elif row['recency_days'] < 90:
-            return 'Recent Customers'
-        elif row['n_transactions'] > 1:
-            return 'At Risk'
-        else:
-            return 'Lost'
-    
-    df['segment'] = df.apply(segment_customer, axis=1)
     
     # Segment distribution
     col1, col2 = st.columns(2)
