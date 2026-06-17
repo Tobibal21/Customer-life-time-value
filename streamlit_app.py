@@ -11,25 +11,20 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # -------------------------------
-
 # Page Configuration
-
 # -------------------------------
 
 st.set_page_config(
-page_title="Customer Lifetime Value Dashboard",
-layout="wide",
-initial_sidebar_state="expanded"
+    page_title="Customer Lifetime Value Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 # -------------------------------
-
 # Minimal Styling
-
 # -------------------------------
 
 st.markdown("""
-
 <style>
 .block-container {
     padding-top: 2rem;
@@ -39,37 +34,30 @@ h1, h2, h3 {
     font-weight: 600;
 }
 </style>
-
 """, unsafe_allow_html=True)
 
 # -------------------------------
-
 # Title
-
 # -------------------------------
 
 st.title("Customer Lifetime Value Analytics")
 st.caption("Customer insights, segmentation, and predictive modeling")
 
 # -------------------------------
-
 # Sidebar
-
 # -------------------------------
 
 st.sidebar.title("Navigation")
 
 analysis_type = st.sidebar.selectbox(
-"Select Analysis Type",
-["Overview", "CLV Analysis", "Customer Segmentation", "RFM Analysis", "Predictive Analytics", "Data Exploration"]
+    "Select Analysis Type",
+    ["Overview", "CLV Analysis", "Customer Segmentation", "RFM Analysis", "Predictive Analytics", "Data Exploration"]
 )
 
 st.sidebar.subheader("Data Source")
 
 # -------------------------------
-
 # Sample Data Generator
-
 # -------------------------------
 
 @st.cache_data
@@ -108,9 +96,7 @@ def generate_sample_data(n_customers=1000):
     return pd.DataFrame(customers)
 
 # -------------------------------
-
 # Data Loading
-
 # -------------------------------
 
 uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=['csv'])
@@ -122,17 +108,35 @@ else:
     df = generate_sample_data()
     st.sidebar.info("Using sample data. Upload a CSV file for custom analysis.")
 
-# Display data info in sidebar
-st.sidebar.markdown("---")
-st.sidebar.subheader("📈 Dataset Info")
-st.sidebar.write(f"**Rows:** {df.shape[0]:,}")
-st.sidebar.write(f"**Columns:** {df.shape[1]}")
-st.sidebar.write(f"**Total Revenue:** ${df['total_spent'].sum():,.2f}")
-
+# -------------------------------
+# RFM Feature Engineering (FIX)
 # -------------------------------
 
-# Overview
+try:
+    df['recency_score'] = pd.qcut(df['recency_days'], q=4, labels=['4', '3', '2', '1'], duplicates='drop')
+    df['frequency_score'] = pd.qcut(df['n_transactions'], q=4, labels=['1', '2', '3', '4'], duplicates='drop')
+    df['monetary_score'] = pd.qcut(df['total_spent'], q=4, labels=['1', '2', '3', '4'], duplicates='drop')
 
+    df['rfm_score'] = (
+        df['recency_score'].astype(str) +
+        df['frequency_score'].astype(str) +
+        df['monetary_score'].astype(str)
+    )
+except Exception as e:
+    st.warning("RFM scoring could not be computed. Check your data distribution.")
+
+# -------------------------------
+# Sidebar Info
+# -------------------------------
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Dataset Info")
+st.sidebar.write(f"Rows: {df.shape[0]:,}")
+st.sidebar.write(f"Columns: {df.shape[1]}")
+st.sidebar.write(f"Total Revenue: ${df['total_spent'].sum():,.2f}")
+
+# -------------------------------
+# Overview
 # -------------------------------
 
 if analysis_type == "Overview":
@@ -161,9 +165,7 @@ if analysis_type == "Overview":
     st.dataframe(df.nlargest(10, 'clv'), use_container_width=True)
 
 # -------------------------------
-
 # CLV Analysis
-
 # -------------------------------
 
 elif analysis_type == "CLV Analysis":
@@ -183,22 +185,12 @@ elif analysis_type == "CLV Analysis":
         st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------------
-
 # Customer Segmentation
-
 # -------------------------------
 
 elif analysis_type == "Customer Segmentation":
-    st.header("👥 Customer Segmentation Analysis")
-    
-    # Create segments
-    df['recency_score'] = pd.qcut(df['recency_days'], q=4, labels=['4', '3', '2', '1'])
-    df['frequency_score'] = pd.qcut(df['n_transactions'], q=4, labels=['1', '2', '3', '4'])
-    df['monetary_score'] = pd.qcut(df['total_spent'], q=4, labels=['1', '2', '3', '4'])
-    
-    df['rfm_score'] = df['recency_score'].astype(str) + df['frequency_score'].astype(str) + df['monetary_score'].astype(str)
-    
-    # Segment definition
+    st.header("Customer Segmentation Analysis")
+
     def segment_customer(row):
         if row['recency_days'] < 30 and row['n_transactions'] > 3:
             return 'Champions'
@@ -210,85 +202,62 @@ elif analysis_type == "Customer Segmentation":
             return 'At Risk'
         else:
             return 'Lost'
-    
+
     df['segment'] = df.apply(segment_customer, axis=1)
-    
-    # Segment distribution
+
     col1, col2 = st.columns(2)
 
     with col1:
-        fig = px.pie(df['segment'].value_counts())
+        segment_counts = df['segment'].value_counts().reset_index()
+        segment_counts.columns = ['segment', 'count']
+
+        fig = px.pie(
+            segment_counts,
+            names='segment',
+            values='count',
+            title='Customer Segment Distribution'
+        )
         fig.update_layout(template="plotly_white")
+
         st.plotly_chart(fig, use_container_width=True)
-
-    with col2:
-        st.dataframe(df.groupby('segment').mean(numeric_only=True))
-
-
 # -------------------------------
-
 # RFM Analysis
-
 # -------------------------------
 
 elif analysis_type == "RFM Analysis":
     st.header("RFM Analysis")
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.subheader("Recency Distribution")
-        fig = px.histogram(df, x='recency_days', nbins=30, title="Days Since Last Purchase",
-                          color_discrete_sequence=['#FF6B6B'])
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("Frequency Distribution")
-        fig = px.histogram(df, x='n_transactions', nbins=20, title="Number of Transactions",
-                          color_discrete_sequence=['#4ECDC4'])
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col3:
-        st.subheader("Monetary Distribution")
-        fig = px.histogram(df, x='total_spent', nbins=30, title="Total Amount Spent",
-                          color_discrete_sequence=['#45B7D1'])
-        fig.update_layout(showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # RFM scatter plots
-    st.subheader("RFM Relationships")
-    fig = make_subplots(rows=1, cols=2)
-    
-    fig.add_trace(
-        go.Scatter(x=df['recency_days'], y=df['total_spent'], mode='markers',
-                  marker=dict(size=df['n_transactions']/2, color=df['clv'], colorscale='Viridis'),
-                  text=df['customer_id'], name='Recency vs Monetary'),
-        row=1, col=1
-    )
-    
-    fig.add_trace(
-        go.Scatter(x=df['n_transactions'], y=df['total_spent'], mode='markers',
-                  marker=dict(size=df['clv']/100, color=df['recency_days'], colorscale='Plasma'),
-                  text=df['customer_id'], name='Frequency vs Monetary'),
-        row=1, col=2
-    )
-    
-    fig.update_layout(height=500)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # RFM matrix
-    st.subheader("RFM Score Matrix")
-    rfm_matrix = pd.crosstab(df['recency_score'], df['frequency_score'], 
-                             values=df['monetary_score'], aggfunc='mean').fillna(0)
-    
-    fig = px.imshow(rfm_matrix, text_auto=True, aspect="auto",
-                   title="Average Monetary Value by Recency and Frequency Scores",
-                   labels=dict(x="Frequency Score", y="Recency Score", color="Avg Monetary"))
-    st.plotly_chart(fig, use_container_width=True)
 
+    if 'recency_score' not in df.columns:
+        st.error("RFM scores not available. Check your data.")
+    else:
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            fig = px.histogram(df, x='recency_days', nbins=30)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            fig = px.histogram(df, x='n_transactions', nbins=20)
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col3:
+            fig = px.histogram(df, x='total_spent', nbins=30)
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.subheader("RFM Matrix")
+
+        rfm_matrix = pd.crosstab(
+            df['recency_score'],
+            df['frequency_score'],
+            values=df['monetary_score'].astype(float),
+            aggfunc='mean'
+        ).fillna(0)
+
+        fig = px.imshow(rfm_matrix, text_auto=True, aspect="auto")
+        st.plotly_chart(fig, use_container_width=True)
+
+# -------------------------------
 # Predictive Analytics
-
 # -------------------------------
 
 elif analysis_type == "Predictive Analytics":
@@ -326,10 +295,9 @@ elif analysis_type == "Predictive Analytics":
         st.success(f"Predicted CLV: ${pred:,.2f}")
 
 # -------------------------------
-
 # Data Exploration
-
 # -------------------------------
+
 else:
     st.header("Data Exploration")
 
@@ -337,9 +305,7 @@ else:
     st.dataframe(df.describe(), use_container_width=True)
 
 # -------------------------------
-
 # Footer
-
 # -------------------------------
 
 st.markdown("---")
