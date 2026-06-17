@@ -220,6 +220,9 @@ elif analysis_type == "Customer Segmentation":
         fig.update_layout(template="plotly_white")
 
         st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.dataframe(df.groupby('segment').mean(numeric_only=True))
 # -------------------------------
 # RFM Analysis
 # -------------------------------
